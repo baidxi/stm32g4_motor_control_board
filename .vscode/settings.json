@@ -1,0 +1,22 @@
+{
+    "files.associations": {
+        "tty.h": "c",
+        "freertos.h": "c",
+        "portable.h": "c",
+        "stm32g4xx_hal.h": "c",
+        "stm32g4xx_hal_conf.h": "c",
+        "bus.h": "c",
+        "init.h": "c",
+        "ring.h": "c",
+        "stm32_uart.h": "c",
+        "cerrno": "c",
+        "cstdarg": "c",
+        "iostream": "c",
+        "streambuf": "c",
+        "*.inc": "c",
+        "stdlib.h": "c",
+        "cmsis_os2.h": "c",
+        "format": "c",
+        "cstdlib": "c"
+    }
+}
