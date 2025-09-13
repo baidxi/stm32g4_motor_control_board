@@ -17,6 +17,9 @@
         "stdlib.h": "c",
         "cmsis_os2.h": "c",
         "format": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "compiler_types.h": "c",
+        "common.h": "c",
+        "stm32_conf.h": "c"
     }
 }

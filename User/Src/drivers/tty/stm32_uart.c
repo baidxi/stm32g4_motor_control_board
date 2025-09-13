@@ -26,7 +26,6 @@ struct stm32_uart {
     xSemaphoreHandle lock;
     osThreadId_t tid;
     bool tx_cplt;
-    uint8_t mode;
     uint8_t chart;
 };
 
@@ -54,7 +53,7 @@ void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
     struct stm32_uart *uart = tty_device_lookup_by_handle(huart);
     struct ring *r = &uart->ringbuf;
 
-    if (uart->mode == TTY_MODE_CONSOLE) {
+    if (uart->tty.mode == TTY_MODE_CONSOLE) {
         uart->buf[r->head & r->mask] = uart->chart;
         ring_enqueue(r, 1);
         if (!ring_is_full(r))
@@ -82,7 +81,7 @@ static int stm32_uart_open(struct device *dev)
     r->head = r->tail = 0;
     r->mask = uart->buf_len -1;
 
-    if (uart->mode == TTY_MODE_CONSOLE)
+    if (uart->tty.mode == TTY_MODE_CONSOLE)
         ret = HAL_UART_Receive_DMA(handle, &uart->chart, 1);
     else
         ret = HAL_UART_Receive_DMA(handle, uart->buf, uart->buf_len - 1);
@@ -114,7 +113,7 @@ static size_t stm32_uart_read(struct device *dev, void *buf, size_t count)
     if (ring_is_empty(r))
         return 0;
 
-    if (uart->mode == TTY_MODE_CONSOLE)
+    if (uart->tty.mode == TTY_MODE_CONSOLE)
         dma_start = ring_is_full(r);
 
     for (i = 0; i < count; i++) {
@@ -124,7 +123,7 @@ static size_t stm32_uart_read(struct device *dev, void *buf, size_t count)
             break;
     }
 
-    if (uart->mode == TTY_MODE_CONSOLE && dma_start) {
+    if (uart->tty.mode == TTY_MODE_CONSOLE && dma_start) {
         HAL_UART_Receive_DMA(handle, &uart->chart, 1);
     }
     return i;
@@ -179,12 +178,13 @@ static int stm32_uart_probe(struct tty_device *tty)
     return 0;
 }
 
-static void stm32_uart_remove(struct tty_device *tty)
+static int stm32_uart_remove(struct tty_device *tty)
 {
     struct stm32_uart *uart = (struct stm32_uart *)tty;
 
     vSemaphoreDelete(uart->lock);
     tty->ops = NULL;
+    return 0;
 }
 
 static const struct driver_match_table stm32_uart_ids[] = {
@@ -206,27 +206,10 @@ int stm32_uart_device_register(struct tty_device *tty)
     return tty_device_register(&uart->tty);
 }
 
-static void tty_driver_init(struct driver *drv)
+static void tty_driver_init(struct device_driver *drv)
 {
     tty_driver_register(to_tty_driver(drv));
 }
-
-void __weak stm32_uart_init(struct device *dev)
-{
-
-}
-
-struct stm32_uart stm32_uart1 = {
-    .tty = {
-        .dev = {
-            .init_name = "stm32-uart",
-            .name = "ttyS1",
-            .init = stm32_uart_init,
-        },
-        .port_num = 1,
-    },
-    .mode = TTY_MODE_CONSOLE,
-};
 
 static struct tty_driver stm32_uart_drv = {
     .drv = {
@@ -238,5 +221,4 @@ static struct tty_driver stm32_uart_drv = {
     .remove = stm32_uart_remove,
 };
 
-register_device(stm32_uart1, stm32_uart1.tty.dev);
 register_driver(stm32_uart, stm32_uart_drv.drv);

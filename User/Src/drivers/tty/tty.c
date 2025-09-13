@@ -43,7 +43,7 @@ static int tty_driver_probe(struct device *dev)
     return drv->probe(tty);
 }
 
-static void tty_driver_remove(struct device *dev)
+static int tty_driver_remove(struct device *dev)
 {
     struct tty_device *tty = to_tty_device(dev);
     struct tty_driver *drv = to_tty_driver(dev->driver);

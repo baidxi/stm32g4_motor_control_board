@@ -6,5 +6,3 @@
 #include <stm32g4xx_hal_uart.h>
 #endif
 
-#define TTY_MODE_CONSOLE    1 << 0
-#define TTY_MODE_STREAM     1 << 1
