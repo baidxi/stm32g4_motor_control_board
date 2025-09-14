@@ -2,21 +2,30 @@
 #include <device/lcd/lcd.h>
 
 #include <errno.h>
+#include <string.h>
 
 static struct list_head device_list = LIST_HEAD_INIT(device_list);
 
 static int lcd_probe(struct device *dev)
 {
-    return 0;
+    return dev->driver->probe(dev);
 }
 
 static int lcd_remove(struct device *dev)
 {
-    return 0;
+    return dev->driver->remove(dev);
 }
 
 static int lcd_match(struct device *dev, struct device_driver *drv)
 {
+    const struct device_match_table *ptr;
+
+    for (ptr = drv->match_ptr; ptr && ptr->compatible; ptr++) {
+        if (strcmp(ptr->compatible, dev->init_name) == 0) {
+            dev->driver = drv;
+            return 1;
+        }
+    }
     return 0;
 }
 
