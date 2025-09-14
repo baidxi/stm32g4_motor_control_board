@@ -16,6 +16,9 @@ struct device {
     void *private_data;
     void (*init)(struct device *);
     struct device *parent;
+    int (*ioctl)(struct device *dev, unsigned int cmd, unsigned long arg);
+    size_t (*read)(struct device *dev, void *buf, size_t size);
+    size_t (*write)(struct device *dev, const void *buf, size_t size);
 };
 
 extern struct device *__board_device_list_start[];
@@ -28,3 +31,6 @@ static struct device *__name##_device __attribute__((used, section("board_device
 
 void device_init(void);
 
+size_t dev_read(struct device *dev, void *buf, size_t size);
+size_t dev_write(struct device *dev, const void *buf, size_t size);
+int dev_ioctl(struct device *dev, unsigned int cmd, unsigned long arg);

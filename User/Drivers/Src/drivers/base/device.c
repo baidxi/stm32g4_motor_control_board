@@ -66,3 +66,21 @@ void device_init()
     }
 }
 
+size_t dev_read(struct device *dev, void *buf, size_t size)
+{
+    if (dev->read)
+        return dev->read(dev, buf, size);
+    return -EOPNOTSUPP;
+}
+size_t dev_write(struct device *dev, const void *buf, size_t size)
+{
+    if (dev->write)
+        return dev->write(dev, buf, size);
+    return -EOPNOTSUPP;
+}
+int dev_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
+{
+    if (dev->ioctl)
+        return dev->ioctl(dev, cmd, arg);
+    return -EOPNOTSUPP;
+}

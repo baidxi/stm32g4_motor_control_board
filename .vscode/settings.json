@@ -24,6 +24,13 @@
         "stdio.h": "c",
         "stm32g4xx.h": "c",
         "stm32_spi.h": "c",
-        "lcd_drv.h": "c"
+        "lcd_drv.h": "c",
+        "array": "c",
+        "hash_map": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "ranges": "c",
+        "span": "c",
+        "utility": "c"
     }
 }
