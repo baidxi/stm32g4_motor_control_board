@@ -54,9 +54,9 @@ int device_probe(struct device_driver *drv)
 
 void device_init()
 {
-    volatile struct device **start = __board_device_list_start;
-    volatile struct device **end = __board_device_list_end;
-    volatile int count = ((uint32_t)end - (uint32_t)start) / (sizeof(void *));
+    struct device **start = __board_device_list_start;
+    struct device **end = __board_device_list_end;
+    int count = ((uint32_t)end - (uint32_t)start) / (sizeof(void *));
     int i;
     struct device *dev;
 

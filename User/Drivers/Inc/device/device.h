@@ -15,6 +15,7 @@ struct device {
     struct bus_type *bus;
     void *private_data;
     void (*init)(struct device *);
+    struct device *parent;
 };
 
 extern struct device *__board_device_list_start[];

@@ -21,7 +21,8 @@
 #include "spi.h"
 
 /* USER CODE BEGIN 0 */
-
+#include <device/lcd/lcd.h>
+#include <device/spi/stm32_spi.h>
 /* USER CODE END 0 */
 
 SPI_HandleTypeDef hspi3;
@@ -115,5 +116,44 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
 }
 
 /* USER CODE BEGIN 1 */
+
+static void stm32_spi_preinit(struct device *dev)
+{
+  struct spi_master *master = to_spi_master(dev);
+  switch(master->bus_num) {
+    case 3:
+      master->dev.private_data = &hspi3;
+      master->mode = hspi3.Init.Mode;
+      break;
+  }
+
+  spi_master_register(master);
+}
+
+static struct stm32_spi stm32_spi3 = {
+  .master = {
+    .dev = {
+      .init_name = "stm32-spi-controller",
+      .init = stm32_spi_preinit,
+    },
+    .bus_num = 3,
+  }
+};
+
+static void lcd_dev_preinit(struct device *dev)
+{
+  dev->parent = &stm32_spi3.master.dev;
+  lcd_device_register(to_lcd_device(dev));
+}
+
+static struct lcd_device st7735 = {
+  {
+    .init = lcd_dev_preinit,
+    .init_name = "st7735-0.96tft",
+  }
+};
+
+register_device(st7735, st7735.dev);
+register_device(stm32_spi3, stm32_spi3.master.dev);
 
 /* USER CODE END 1 */

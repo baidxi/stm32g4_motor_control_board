@@ -75,6 +75,7 @@ struct spi_driver {
 extern struct bus_type spi_bus_type;
 
 #define to_spi_master(d)    container_of(d, struct spi_master, dev)
+#define to_spi_device(d)    container_of(d, struct spi_device, dev)
 
 static inline void spi_message_init(struct spi_message *m)
 {

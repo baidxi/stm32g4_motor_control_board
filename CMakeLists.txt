@@ -53,6 +53,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     User/Drivers/Src/drivers/spi/stm32_spi.c
     User/Drivers/Src/drivers/tty/tty.c
     User/Drivers/Src/drivers/tty/stm32_uart.c
+    User/Drivers/Src/drivers/lcd/lcd.c
     User/Drivers/Src/kernel/kernel.c
     User/App/shell/shell.c
     User/App/shell/commands/help_cmd.c

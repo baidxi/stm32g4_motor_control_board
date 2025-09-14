@@ -22,6 +22,8 @@
         "common.h": "c",
         "stm32_conf.h": "c",
         "stdio.h": "c",
-        "stm32g4xx.h": "c"
+        "stm32g4xx.h": "c",
+        "stm32_spi.h": "c",
+        "lcd_drv.h": "c"
     }
 }

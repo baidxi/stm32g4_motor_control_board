@@ -27,7 +27,7 @@ static int i2c_bus_remove(struct device *dev)
 
 static int i2c_bus_match(struct device *dev, struct device_driver *drv)
 {
-    const struct driver_match_table *ptr;
+    const struct device_match_table *ptr;
 
     if (dev->bus == drv->bus) {
         for (ptr = drv->match_ptr; ptr && ptr->compatible; ptr++) {
