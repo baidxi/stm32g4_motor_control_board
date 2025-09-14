@@ -5,8 +5,6 @@
 #include <bus.h>
 #include <ring.h>
 
-
-
 #include <FreeRTOS.h>
 #include <semphr.h>
 #include <task.h>
@@ -17,35 +15,12 @@
 #include <string.h>
 #include <stdio.h>
 
-struct stm32_uart {
-    struct tty_device tty;
-    uint8_t buf[128];
-    size_t buf_len;
-    bool is_open;
-    struct ring ringbuf;
-    xSemaphoreHandle lock;
-    osThreadId_t tid;
-    bool tx_cplt;
-    uint8_t chart;
-};
-
 #define to_stm32_uart(d)  container_of(d, struct stm32_uart, tty)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     struct stm32_uart *tty = (struct stm32_uart *)tty_device_lookup_by_handle(huart);
     tty->tx_cplt = true;
-}
-
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
-{
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(huart);
-  UNUSED(Size);
-
-  /* NOTE : This function should not be modified, when the callback is needed,
-            the HAL_UARTEx_RxEventCallback can be implemented in the user file.
-   */
 }
 
 void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
@@ -63,17 +38,37 @@ void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
     }
 }
 
+const osThreadAttr_t uartTask_attrbutes = {
+  .name = "uartTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t)osPriorityNormal1,
+};
+
+static void uart_task(void *args)
+{
+    struct stm32_uart *uart = args;
+    UART_HandleTypeDef *handle = uart->tty.dev.private_data;
+    struct ring *r = &uart->ringbuf;
+    int ret;
+
+    while(uart->is_open) {
+        if (ring_size(r)) {
+            ret = HAL_UART_Receive(handle, &uart->buf[(r->head & r->mask)], 1 , 10);
+            if (ret == HAL_OK) {
+                    ring_enqueue(r, 1);
+            }
+        }
+    }
+}
+
 static int stm32_uart_open(struct device *dev)
 {
     struct stm32_uart *uart = to_stm32_uart(dev);
     UART_HandleTypeDef *handle = uart->tty.dev.private_data;
     struct ring *r = &uart->ringbuf;
-    int ret;
-
-    xSemaphoreTake(uart->lock, portMAX_DELAY);
+    int ret = 0;
 
     if (uart->is_open) {
-        xSemaphoreGive(uart->lock);
         return -EBUSY;
     }
 
@@ -81,18 +76,36 @@ static int stm32_uart_open(struct device *dev)
     r->head = r->tail = 0;
     r->mask = uart->buf_len -1;
 
-    if (uart->tty.mode == TTY_MODE_CONSOLE)
-        ret = HAL_UART_Receive_DMA(handle, &uart->chart, 1);
-    else
-        ret = HAL_UART_Receive_DMA(handle, uart->buf, uart->buf_len - 1);
+    memset(uart->buf, 0, uart->buf_len);
 
-    xSemaphoreGive(uart->lock);
+    if (uart->tty.use_dma) {
+        if (uart->tty.mode == TTY_MODE_CONSOLE)
+            ret = HAL_UART_Receive_DMA(handle, &uart->chart, 1);
+        else
+            ret = HAL_UART_Receive_DMA(handle, uart->buf, uart->buf_len - 1);
+    } else {
+        uart->tid = osThreadNew(uart_task, uart, &uartTask_attrbutes);
+    }
 
     return ret;
 }
 
 static int stm32_uart_close(struct device *dev)
 {
+    struct stm32_uart *uart =(struct stm32_uart *) to_tty_device(dev);
+    UART_HandleTypeDef *handle = uart->tty.dev.private_data;
+
+    if (!uart->is_open) {
+        return 0;
+    }
+
+    uart->is_open = false;
+
+    if (uart->tty.use_dma) {
+        HAL_UART_Abort(handle);
+        HAL_UART_AbortReceive(handle);
+    }
+
     return 0;
 }
 
@@ -123,9 +136,12 @@ static size_t stm32_uart_read(struct device *dev, void *buf, size_t count)
             break;
     }
 
-    if (uart->tty.mode == TTY_MODE_CONSOLE && dma_start) {
-        HAL_UART_Receive_DMA(handle, &uart->chart, 1);
+    if (uart->tty.use_dma) {
+        if (uart->tty.mode == TTY_MODE_CONSOLE && dma_start) {
+            HAL_UART_Receive_DMA(handle, &uart->chart, 1);
+        }
     }
+
     return i;
 }
 
@@ -136,22 +152,25 @@ static size_t stm32_uart_write(struct device *dev, const void *buf, size_t len)
     UART_HandleTypeDef *handle = tty->dev.private_data;
     int ret;
 
-    xSemaphoreTake(uart->lock, portMAX_DELAY);
+    if (uart->tty.use_dma) {
+        uart->tx_cplt = false;
 
-    uart->tx_cplt = false;
+        ret = HAL_UART_Transmit_DMA(handle, buf, len);
 
-    ret = HAL_UART_Transmit_DMA(handle, buf, len);
-
-    if (ret == HAL_OK) {
-        while(!uart->tx_cplt) {
-            taskYIELD();
-            ;
+        if (ret == HAL_OK) {
+            while(!uart->tx_cplt) {
+                taskYIELD();
+                ;
+            }
+        }
+    } else {
+        ret = HAL_UART_Transmit(handle, buf, len, 10);
+        if (ret == HAL_OK) {
+            ret = len;
         }
     }
 
-    xSemaphoreGive(uart->lock);
-
-    return 0;
+    return len;
 }
 
 const struct tty_operations stm32_uart_ops = {
@@ -168,10 +187,7 @@ static int stm32_uart_probe(struct tty_device *tty)
 
     tty->ops = &stm32_uart_ops;
 
-    uart->lock = xSemaphoreCreateMutex();
-
-    if (!uart->lock)
-        return -ENOMEM;
+    uart->is_open = false;
 
     uart->buf_len = sizeof(uart->buf);
 
@@ -180,9 +196,7 @@ static int stm32_uart_probe(struct tty_device *tty)
 
 static int stm32_uart_remove(struct tty_device *tty)
 {
-    struct stm32_uart *uart = (struct stm32_uart *)tty;
-
-    vSemaphoreDelete(uart->lock);
+    // struct stm32_uart *uart = (struct stm32_uart *)tty;
     tty->ops = NULL;
     return 0;
 }
@@ -196,15 +210,15 @@ static const struct driver_match_table stm32_uart_ids[] = {
     }
 };
 
-int stm32_uart_device_register(struct tty_device *tty)
-{
-    struct stm32_uart *uart = to_stm32_uart(tty);
+// int stm32_uart_device_register(struct tty_device *tty)
+// {
+//     struct stm32_uart *uart = to_stm32_uart(tty);
 
-    if (!uart)
-        return -ENOMEM;
+//     if (!uart)
+//         return -ENOMEM;
 
-    return tty_device_register(&uart->tty);
-}
+//     return tty_device_register(&uart->tty);
+// }
 
 static void tty_driver_init(struct device_driver *drv)
 {
@@ -220,5 +234,8 @@ static struct tty_driver stm32_uart_drv = {
     .probe = stm32_uart_probe,
     .remove = stm32_uart_remove,
 };
+
+
+
 
 register_driver(stm32_uart, stm32_uart_drv.drv);

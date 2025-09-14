@@ -21,8 +21,7 @@
 #include "usart.h"
 
 /* USER CODE BEGIN 0 */
-#include <device/device.h>
-#include <device/tty/tty.h>
+#include <device/tty/stm32_uart.h>
 /* USER CODE END 0 */
 
 UART_HandleTypeDef huart1;
@@ -198,15 +197,20 @@ void stm32_uart_init(struct device *dev)
   tty_device_register(tty);
 }
 
-static struct tty_device stm32_uart1 = {
-    .dev = {
-        .init_name = "stm32-uart",
-        .name = "ttyS1",
-        .init = stm32_uart_init,
-    },
-    .port_num = 1,
-    .mode = TTY_MODE_CONSOLE,
+static struct stm32_uart stm32_uart1 = {
+  .tty = {
+        .dev = {
+          .init_name = "stm32-uart",
+          .name = "ttyS1",
+          .init = stm32_uart_init,
+      },
+      .port_num = 1,
+      .mode = TTY_MODE_CONSOLE,
+      .use_dma = true,
+  }
 };
 
-register_device(stm32_uart1, stm32_uart1.dev);
+register_device(stm32_uart1, stm32_uart1.tty.dev);
+
+
 /* USER CODE END 1 */

@@ -20,6 +20,8 @@
         "cstdlib": "c",
         "compiler_types.h": "c",
         "common.h": "c",
-        "stm32_conf.h": "c"
+        "stm32_conf.h": "c",
+        "stdio.h": "c",
+        "stm32g4xx.h": "c"
     }
 }

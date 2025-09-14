@@ -22,8 +22,8 @@ extern struct device *__board_device_list_end[];
 
 int device_register(struct device *dev);
 
-#define register_device(__name, __drv)  \
-static struct device *__name##_device __attribute__((used, section("board_device_list"))) = &__drv
+#define register_device(__name, __dev)  \
+static struct device *__name##_device __attribute__((used, section("board_device_list"))) = &__dev
 
 void device_init(void);
 

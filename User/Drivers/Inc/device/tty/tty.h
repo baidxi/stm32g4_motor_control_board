@@ -26,6 +26,7 @@ struct tty_device {
     const struct tty_operations *ops;
     struct list_head list;
     int mode;
+    bool use_dma;
 };
 
 struct tty_driver {
